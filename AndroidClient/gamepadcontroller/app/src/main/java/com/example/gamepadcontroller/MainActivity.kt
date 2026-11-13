@@ -4,41 +4,34 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Button
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+
 import androidx.compose.runtime.*
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.example.gamepadcontroller.ui.theme.GamepadcontrollerTheme
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Row
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.height
+
+import com.example.gamepadcontroller.ui.theme.GamepadcontrollerTheme
+
+
+// --------------------------------------------------
+// MAIN ACTIVITY
+// --------------------------------------------------
 
 class MainActivity : ComponentActivity() {
 
@@ -49,12 +42,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GamepadcontrollerTheme {
+
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->
 
                     GamepadScreen(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
                     )
                 }
             }
@@ -62,25 +58,38 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+// --------------------------------------------------
+// GAMEPAD SCREEN
+// --------------------------------------------------
+
 @Composable
 fun GamepadScreen(modifier: Modifier = Modifier) {
 
     var controllerState by remember {
         mutableStateOf(ControllerState())
     }
-    // Dpad state remember
+
+    // D-PAD STATES
+
     var dpadUp by remember { mutableStateOf(false) }
     var dpadDown by remember { mutableStateOf(false) }
     var dpadLeft by remember { mutableStateOf(false) }
     var dpadRight by remember { mutableStateOf(false) }
-    // Logic of dpad state?
+
+
+    // D-PAD STATE CALCULATION
+
     LaunchedEffect(dpadUp, dpadDown, dpadLeft, dpadRight) {
+
         controllerState = controllerState.copy(
+
             dpadX = when {
                 dpadLeft && !dpadRight -> -1
                 dpadRight && !dpadLeft -> 1
                 else -> 0
             },
+
             dpadY = when {
                 dpadUp && !dpadDown -> -1
                 dpadDown && !dpadUp -> 1
@@ -89,267 +98,455 @@ fun GamepadScreen(modifier: Modifier = Modifier) {
         )
     }
 
-    Column(
+
+    // RESPONSIVE SCREEN
+
+    BoxWithConstraints(
         modifier = modifier.fillMaxSize()
     ) {
 
-        // FIXED STATUS DISPLAY
-        Text(
-            text = """
-            Face: A=${controllerState.a} B=${controllerState.b} X=${controllerState.x} Y=${controllerState.y}
-            Shoulder: LB=${controllerState.lb} RB=${controllerState.rb}
-            Stick Clicks: LS=${controllerState.ls} RS=${controllerState.rs}
-            System: Start=${controllerState.start} Select=${controllerState.select} Guide=${controllerState.guide}
-            D-pad: X=${controllerState.dpadX}, Y=${controllerState.dpadY}
-            Left Stick: X=${controllerState.leftStickX}, Y=${controllerState.leftStickY}
-            Right Stick: X=${controllerState.rightStickX}, Y=${controllerState.rightStickY}
-            Triggers: LT=${controllerState.lt}, RT=${controllerState.rt}
-        """.trimIndent(),
-            modifier = Modifier.padding(8.dp),
-            fontSize = 11.sp,
-            lineHeight = 15.sp
+        // Available screen dimensions
+
+        val screenWidth = maxWidth
+        val screenHeight = maxHeight
+
+
+        // RESPONSIVE CONTROL SIZES
+
+        val buttonSize = minOf(
+            screenWidth * 0.075f,
+            screenHeight * 0.15f
+        ).coerceIn(36.dp, 58.dp)
+
+        val dpadSize = buttonSize * 0.85f
+
+        val stickSize = minOf(
+            screenWidth * 0.17f,
+            screenHeight * 0.36f
+        ).coerceIn(90.dp, 145.dp)
+
+        val triggerWidth = (screenWidth * 0.045f)
+            .coerceIn(32.dp, 46.dp)
+
+        val triggerHeight = minOf(
+            screenHeight * 0.32f,
+            125.dp
+        ).coerceAtLeast(75.dp)
+
+
+        // --------------------------------------------------
+        // LEFT ANALOG STICK
+        // --------------------------------------------------
+
+        AnalogStick(
+            label = "Left Stick",
+            stickSize = stickSize,
+            onPositionChange = { x, y ->
+
+                controllerState = controllerState.copy(
+                    leftStickX = x,
+                    leftStickY = y
+                )
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(
+                    x = screenWidth * 0.025f,
+                    y = screenHeight * 0.58f
+                )
         )
 
-        // SCROLLABLE CONTROLLER AREA
+
+        // LEFT STICK CLICK
+
+        GamepadButton(
+            label = "LS",
+            isPressed = controllerState.ls,
+            buttonSize = buttonSize * 0.75f,
+            onPressedChange = {
+
+                controllerState = controllerState.copy(ls = it)
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(
+                    x = screenWidth * 0.17f,
+                    y = screenHeight * 0.76f
+                )
+        )
+
+
+        // --------------------------------------------------
+        // LEFT SHOULDER BUTTON AND TRIGGER
+        // --------------------------------------------------
+
+        GamepadButton(
+            label = "LB",
+            isPressed = controllerState.lb,
+            buttonSize = buttonSize,
+            onPressedChange = {
+
+                controllerState = controllerState.copy(lb = it)
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(
+                    x = screenWidth * 0.14f,
+                    y = screenHeight * 0.035f
+                )
+        )
+
+
+        TriggerSlider(
+            label = "LT",
+            value = controllerState.lt,
+            sliderWidth = triggerWidth,
+            sliderHeight = triggerHeight,
+            onValueChange = {
+
+                controllerState = controllerState.copy(lt = it)
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(
+                    x = screenWidth * 0.14f,
+                    y = screenHeight * 0.23f
+                )
+        )
+
+
+        // --------------------------------------------------
+        // D-PAD
+        // --------------------------------------------------
+
         Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .align(Alignment.TopStart)
+                .offset(
+                    x = screenWidth * 0.28f,
+                    y = screenHeight * 0.16f
+                ),
+
+            horizontalAlignment = Alignment.CenterHorizontally,
+
+            verticalArrangement = Arrangement.spacedBy(
+                dpadSize * 0.08f
+            )
         ) {
 
-            // Face Buttons
-            Spacer(modifier = Modifier.size(20.dp))
+            DpadButton(
+                label = "↑",
+                isPressed = dpadUp,
+                buttonSize = dpadSize,
+                onPressedChange = { dpadUp = it }
+            )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(
+                    dpadSize * 0.08f
+                )
             ) {
-                GamepadButton(
-                    label = "Y",
-                    isPressed = controllerState.y,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(y = it)
-                    }
+
+                DpadButton(
+                    label = "←",
+                    isPressed = dpadLeft,
+                    buttonSize = dpadSize,
+                    onPressedChange = { dpadLeft = it }
                 )
 
+                DpadButton(
+                    label = "→",
+                    isPressed = dpadRight,
+                    buttonSize = dpadSize,
+                    onPressedChange = { dpadRight = it }
+                )
+            }
+
+            DpadButton(
+                label = "↓",
+                isPressed = dpadDown,
+                buttonSize = dpadSize,
+                onPressedChange = { dpadDown = it }
+            )
+        }
+
+
+        // --------------------------------------------------
+        // CENTER SYSTEM BUTTONS
+        // --------------------------------------------------
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(
+                    y = -(screenHeight * 0.08f)
+                ),
+
+            horizontalArrangement = Arrangement.spacedBy(
+                buttonSize * 0.15f
+            ),
+
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            GamepadButton(
+                label = "SELECT",
+                isPressed = controllerState.select,
+                buttonSize = buttonSize * 1.15f,
+                onPressedChange = {
+
+                    controllerState = controllerState.copy(select = it)
+                }
+            )
+
+            GamepadButton(
+                label = "GUIDE",
+                isPressed = controllerState.guide,
+                buttonSize = buttonSize * 1.15f,
+                onPressedChange = {
+
+                    controllerState = controllerState.copy(guide = it)
+                }
+            )
+
+            GamepadButton(
+                label = "START",
+                isPressed = controllerState.start,
+                buttonSize = buttonSize * 1.15f,
+                onPressedChange = {
+
+                    controllerState = controllerState.copy(start = it)
+                }
+            )
+        }
+
+
+        // --------------------------------------------------
+        // RIGHT ANALOG STICK
+        // --------------------------------------------------
+
+        AnalogStick(
+            label = "Right Stick",
+            stickSize = stickSize,
+            onPositionChange = { x, y ->
+
+                controllerState = controllerState.copy(
+                    rightStickX = x,
+                    rightStickY = y
+                )
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = -(screenWidth * 0.025f),
+                    y = screenHeight * 0.58f
+                )
+        )
+
+
+        // RIGHT STICK CLICK
+
+        GamepadButton(
+            label = "RS",
+            isPressed = controllerState.rs,
+            buttonSize = buttonSize * 0.75f,
+            onPressedChange = {
+
+                controllerState = controllerState.copy(rs = it)
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = -(screenWidth * 0.17f),
+                    y = screenHeight * 0.76f
+                )
+        )
+
+
+        // --------------------------------------------------
+        // RIGHT SHOULDER BUTTON AND TRIGGER
+        // --------------------------------------------------
+
+        GamepadButton(
+            label = "RB",
+            isPressed = controllerState.rb,
+            buttonSize = buttonSize,
+            onPressedChange = {
+
+                controllerState = controllerState.copy(rb = it)
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = -(screenWidth * 0.14f),
+                    y = screenHeight * 0.035f
+                )
+        )
+
+
+        TriggerSlider(
+            label = "RT",
+            value = controllerState.rt,
+            sliderWidth = triggerWidth,
+            sliderHeight = triggerHeight,
+            onValueChange = {
+
+                controllerState = controllerState.copy(rt = it)
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = -(screenWidth * 0.14f),
+                    y = screenHeight * 0.23f
+                )
+        )
+
+
+        // --------------------------------------------------
+        // PLAYSTATION FACE BUTTONS
+        // --------------------------------------------------
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(
+                    x = -(screenWidth * 0.28f),
+                    y = screenHeight * 0.16f
+                ),
+
+            horizontalAlignment = Alignment.CenterHorizontally,
+
+            verticalArrangement = Arrangement.spacedBy(
+                buttonSize * 0.12f
+            )
+        ) {
+
+            // TRIANGLE
+
+            GamepadButton(
+                label = "△",
+                isPressed = controllerState.y,
+                buttonSize = buttonSize,
+                onPressedChange = {
+
+                    controllerState = controllerState.copy(y = it)
+                }
+            )
+
+
+            // SQUARE AND CIRCLE
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    buttonSize * 0.12f
+                )
+            ) {
+
                 GamepadButton(
-                    label = "X",
+                    label = "□",
                     isPressed = controllerState.x,
+                    buttonSize = buttonSize,
                     onPressedChange = {
+
                         controllerState = controllerState.copy(x = it)
                     }
                 )
 
                 GamepadButton(
-                    label = "B",
+                    label = "○",
                     isPressed = controllerState.b,
+                    buttonSize = buttonSize,
                     onPressedChange = {
+
                         controllerState = controllerState.copy(b = it)
                     }
                 )
-
-                GamepadButton(
-                    label = "A",
-                    isPressed = controllerState.a,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(a = it)
-                    }
-                )
             }
 
-            // Shoulder Buttons
-            Spacer(modifier = Modifier.size(20.dp))
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                GamepadButton(
-                    label = "LB",
-                    isPressed = controllerState.lb,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(lb = it)
-                    }
-                )
+            // CROSS
 
-                GamepadButton(
-                    label = "RB",
-                    isPressed = controllerState.rb,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(rb = it)
-                    }
-                )
-            }
+            GamepadButton(
+                label = "✕",
+                isPressed = controllerState.a,
+                buttonSize = buttonSize,
+                onPressedChange = {
 
-            // Stick Click Buttons
-            Spacer(modifier = Modifier.size(20.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                GamepadButton(
-                    label = "LS",
-                    isPressed = controllerState.ls,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(ls = it)
-                    }
-                )
-
-                GamepadButton(
-                    label = "RS",
-                    isPressed = controllerState.rs,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(rs = it)
-                    }
-                )
-            }
-
-            // Start, Select and Guide
-            Spacer(modifier = Modifier.size(20.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                GamepadButton(
-                    label = "Select",
-                    isPressed = controllerState.select,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(select = it)
-                    }
-                )
-
-                GamepadButton(
-                    label = "Start",
-                    isPressed = controllerState.start,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(start = it)
-                    }
-                )
-
-                GamepadButton(
-                    label = "Guide",
-                    isPressed = controllerState.guide,
-                    onPressedChange = {
-                        controllerState = controllerState.copy(guide = it)
-                    }
-                )
-            }
-
-            // D-pad
-            Spacer(modifier = Modifier.size(30.dp))
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                DpadButton(
-                    label = "↑",
-                    isPressed = dpadUp,
-                    onPressedChange = {
-                        dpadUp = it
-                    }
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    DpadButton(
-                        label = "←",
-                        isPressed = dpadLeft,
-                        onPressedChange = {
-                            dpadLeft = it
-                        }
-                    )
-
-                    DpadButton(
-                        label = "→",
-                        isPressed = dpadRight,
-                        onPressedChange = {
-                            dpadRight = it
-                        }
-                    )
-                }
-
-                DpadButton(
-                    label = "↓",
-                    isPressed = dpadDown,
-                    onPressedChange = {
-                        dpadDown = it
-                    }
-                )
-            }
-
-            // Left Analog Stick
-            Spacer(modifier = Modifier.size(30.dp))
-
-            AnalogStick(
-                label = "Left Stick",
-                onPositionChange = { x, y ->
-                    controllerState = controllerState.copy(
-                        leftStickX = x,
-                        leftStickY = y
-                    )
+                    controllerState = controllerState.copy(a = it)
                 }
             )
+        }
 
-            // Right Analog Stick
-            Spacer(modifier = Modifier.size(30.dp))
 
-            AnalogStick(
-                label = "Right Stick",
-                onPositionChange = { x, y ->
-                    controllerState = controllerState.copy(
-                        rightStickX = x,
-                        rightStickY = y
-                    )
-                }
+        // --------------------------------------------------
+        // FLOATING STATUS DISPLAY
+        // --------------------------------------------------
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 4.dp)
+                .widthIn(max = screenWidth * 0.48f)
+                .background(
+                    color = Color.Black.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(10.dp)
+                )
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 5.dp
+                ),
+
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Text(
+                text = """
+                    A:${controllerState.a} B:${controllerState.b} X:${controllerState.x} Y:${controllerState.y}
+                    LB:${controllerState.lb} RB:${controllerState.rb} | LS:${controllerState.ls} RS:${controllerState.rs}
+                    D-pad: ${controllerState.dpadX}, ${controllerState.dpadY}
+                    Left: ${controllerState.leftStickX}, ${controllerState.leftStickY}
+                    Right: ${controllerState.rightStickX}, ${controllerState.rightStickY}
+                    LT:${controllerState.lt} RT:${controllerState.rt}
+                """.trimIndent(),
+
+                color = Color.White,
+
+                fontSize = 9.sp,
+
+                lineHeight = 11.sp
             )
-
-            // Triggers Left and right
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(40.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TriggerSlider(
-                    label = "LT",
-                    value = controllerState.lt,
-                    onValueChange = {
-                        controllerState = controllerState.copy(lt = it)
-                    }
-                )
-
-                TriggerSlider(
-                    label = "RT",
-                    value = controllerState.rt,
-                    onValueChange = {
-                        controllerState = controllerState.copy(rt = it)
-                    }
-                )
-            }
-
-            // Bottom spacing
-            Spacer(modifier = Modifier.size(30.dp))
         }
     }
 }
+
+
+// --------------------------------------------------
+// REUSABLE GAMEPAD BUTTON
+// --------------------------------------------------
+
 @Composable
 fun GamepadButton(
     label: String,
     isPressed: Boolean,
-    onPressedChange: (Boolean) -> Unit
+    onPressedChange: (Boolean) -> Unit,
+    buttonSize: Dp = 75.dp,
+    modifier: Modifier = Modifier
 ) {
+
     val currentOnPressedChange by rememberUpdatedState(onPressedChange)
 
     Box(
-        modifier = Modifier
-            .size(75.dp)
+        modifier = modifier
+            .size(buttonSize)
             .background(
                 color = if (isPressed) Color.Red else Color.DarkGray,
                 shape = RoundedCornerShape(50.dp)
             )
             .pointerInput(Unit) {
+
                 detectTapGestures(
                     onPress = {
+
                         currentOnPressedChange(true)
 
                         try {
@@ -360,34 +557,45 @@ fun GamepadButton(
                     }
                 )
             },
+
         contentAlignment = Alignment.Center
     ) {
+
         Text(
             text = label,
-            color = Color.White
+            color = Color.White,
+            fontSize = if (label.length > 2) 9.sp else 14.sp
         )
     }
 }
 
-// Dpad buttons composable
+
+// --------------------------------------------------
+// REUSABLE D-PAD BUTTON
+// --------------------------------------------------
+
 @Composable
 fun DpadButton(
     label: String,
     isPressed: Boolean,
-    onPressedChange: (Boolean) -> Unit
+    onPressedChange: (Boolean) -> Unit,
+    buttonSize: Dp = 65.dp
 ) {
+
     val currentOnPressedChange by rememberUpdatedState(onPressedChange)
 
     Box(
         modifier = Modifier
-            .size(65.dp)
+            .size(buttonSize)
             .background(
                 color = if (isPressed) Color.Red else Color.DarkGray,
                 shape = RoundedCornerShape(12.dp)
             )
             .pointerInput(Unit) {
+
                 detectTapGestures(
                     onPress = {
+
                         currentOnPressedChange(true)
 
                         try {
@@ -398,83 +606,133 @@ fun DpadButton(
                     }
                 )
             },
+
         contentAlignment = Alignment.Center
     ) {
+
         Text(
             text = label,
-            color = Color.White
+            color = Color.White,
+            fontSize = 18.sp
         )
     }
 }
 
+
+// --------------------------------------------------
+// ANALOG STICK
+// --------------------------------------------------
+
 @Composable
 fun AnalogStick(
     label: String,
-    onPositionChange: (Float, Float) -> Unit
+    onPositionChange: (Float, Float) -> Unit,
+    stickSize: Dp = 160.dp,
+    modifier: Modifier = Modifier
 ) {
+
     var knobPosition by remember {
         mutableStateOf(Offset.Zero)
     }
 
     val currentOnPositionChange by rememberUpdatedState(onPositionChange)
 
+
     Column(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = label)
+
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 11.sp
+        )
+
 
         Canvas(
             modifier = Modifier
-                .size(160.dp)
+                .size(stickSize)
                 .pointerInput(Unit) {
+
                     fun updatePosition(touch: Offset) {
+
                         val center = Offset(
                             size.width / 2f,
                             size.height / 2f
                         )
 
-                        val baseRadius = minOf(size.width, size.height).toFloat() * 0.46f
+                        val baseRadius =
+                            minOf(size.width, size.height).toFloat() * 0.46f
+
                         val knobRadius = baseRadius * 0.32f
+
                         val maxDistance = baseRadius - knobRadius
+
 
                         val dx = touch.x - center.x
                         val dy = touch.y - center.y
 
                         val distance = kotlin.math.hypot(dx, dy)
+
+
                         val scale = if (distance > maxDistance) {
                             maxDistance / distance
                         } else {
                             1f
                         }
 
+
                         val offsetX = dx * scale
                         val offsetY = dy * scale
 
                         knobPosition = Offset(offsetX, offsetY)
 
-                        val normalizedX = (offsetX / maxDistance).coerceIn(-1f, 1f)
-                        val normalizedY = (offsetY / maxDistance).coerceIn(-1f, 1f)
 
-                        currentOnPositionChange(normalizedX, normalizedY)
+                        val normalizedX =
+                            (offsetX / maxDistance).coerceIn(-1f, 1f)
+
+                        val normalizedY =
+                            (offsetY / maxDistance).coerceIn(-1f, 1f)
+
+
+                        currentOnPositionChange(
+                            normalizedX,
+                            normalizedY
+                        )
                     }
 
+
                     detectDragGestures(
-                        onDragStart = { updatePosition(it) },
+
+                        onDragStart = {
+                            updatePosition(it)
+                        },
+
                         onDrag = { change, _ ->
+
                             change.consume()
+
                             updatePosition(change.position)
                         },
+
                         onDragEnd = {
+
                             knobPosition = Offset.Zero
+
                             currentOnPositionChange(0f, 0f)
                         },
+
                         onDragCancel = {
+
                             knobPosition = Offset.Zero
+
                             currentOnPositionChange(0f, 0f)
                         }
                     )
                 }
         ) {
+
             val center = Offset(
                 size.width / 2f,
                 size.height / 2f
@@ -483,14 +741,18 @@ fun AnalogStick(
             val baseRadius = size.minDimension * 0.46f
             val knobRadius = baseRadius * 0.32f
 
-            // Outer joystick base
+
+            // OUTER BASE
+
             drawCircle(
                 color = Color.DarkGray,
                 radius = baseRadius,
                 center = center
             )
 
-            // Movable inner knob
+
+            // MOVABLE KNOB
+
             drawCircle(
                 color = Color.LightGray,
                 radius = knobRadius,
@@ -500,36 +762,59 @@ fun AnalogStick(
     }
 }
 
-// Trigger logic
+
+// --------------------------------------------------
+// ANALOG TRIGGER
+// --------------------------------------------------
+
 @Composable
 fun TriggerSlider(
     label: String,
     value: Float,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    sliderWidth: Dp = 65.dp,
+    sliderHeight: Dp = 180.dp,
+    modifier: Modifier = Modifier
 ) {
+
     val currentOnValueChange by rememberUpdatedState(onValueChange)
 
+
     Column(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = "$label: ${(value * 100).toInt()}%")
+
+        Text(
+            text = "$label: ${(value * 100).toInt()}%",
+            color = Color.White,
+            fontSize = 10.sp
+        )
+
 
         Box(
             modifier = Modifier
-                .width(65.dp)
-                .height(180.dp)
+                .width(sliderWidth)
+                .height(sliderHeight)
                 .background(
                     color = Color.DarkGray,
                     shape = RoundedCornerShape(12.dp)
                 )
                 .pointerInput(Unit) {
+
                     detectDragGestures(
+
                         onDragStart = { touch ->
+
                             val newValue =
-                                (1f - touch.y / size.height).coerceIn(0f, 1f)
+                                (1f - touch.y / size.height)
+                                    .coerceIn(0f, 1f)
+
                             currentOnValueChange(newValue)
                         },
+
                         onDrag = { change, _ ->
+
                             change.consume()
 
                             val newValue =
@@ -538,16 +823,20 @@ fun TriggerSlider(
 
                             currentOnValueChange(newValue)
                         },
+
                         onDragEnd = {
                             currentOnValueChange(0f)
                         },
+
                         onDragCancel = {
                             currentOnValueChange(0f)
                         }
                     )
                 },
+
             contentAlignment = Alignment.BottomCenter
         ) {
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
